@@ -2,6 +2,7 @@
 session_start();
 require_once 'config/database.php';
 require_once 'includes/functions.php';
+require_once 'includes/user_functions.php';
 
 // Cek apakah user sudah login
 if (isset($_SESSION['user_id'])) {
@@ -9,11 +10,26 @@ if (isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Cek remember me cookie
+if (isset($_COOKIE['remember_token'])) {
+    $user = getUserByRememberToken($_COOKIE['remember_token']);
+    if ($user) {
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = $user['role'];
+        updateLastLogin($user['id']);
+        logActivity($user['id'], 'login', 'User logged in via remember me');
+        header("Location: index.php");
+        exit();
+    }
+}
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = clean($_POST['username']);
     $password = $_POST['password'];
+    $remember = isset($_POST['remember']) ? true : false;
     
     // Validasi input
     if (empty($username) || empty($password)) {
@@ -29,6 +45,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 // Set session
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                
+                // Update last login
+                updateLastLogin($user['id']);
+                
+                // Log activity
+                logActivity($user['id'], 'login', 'User logged in successfully');
+                
+                // Handle remember me
+                if ($remember) {
+                    $token = generateRememberToken();
+                    setRememberToken($user['id'], $token);
+                    setcookie('remember_token', $token, time() + (86400 * 30), "/"); // 30 days
+                }
                 
                 // Redirect ke dashboard
                 header("Location: index.php");
@@ -88,11 +118,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-12">
+                    <div class="col-8">
+                        <div class="icheck-primary">
+                            <input type="checkbox" id="remember" name="remember">
+                            <label for="remember">
+                                Remember Me
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-4">
                         <button type="submit" class="btn btn-primary btn-block">Sign In</button>
                     </div>
                 </div>
             </form>
+
+            <p class="mt-3 mb-1">
+                <a href="forgot-password.php">I forgot my password</a>
+            </p>
+            <p class="mb-0">
+                <a href="register.php" class="text-center">Register a new account</a>
+            </p>
         </div>
     </div>
 </div>

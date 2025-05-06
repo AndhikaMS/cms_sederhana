@@ -26,10 +26,20 @@
 
         <!-- Right navbar links -->
         <ul class="navbar-nav ml-auto">
-            <li class="nav-item">
-                <a class="nav-link" href="logout.php">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+            <li class="nav-item dropdown">
+                <a class="nav-link" data-toggle="dropdown" href="#">
+                    <i class="far fa-user"></i>
+                    <?php echo htmlspecialchars($_SESSION['username']); ?>
                 </a>
+                <div class="dropdown-menu dropdown-menu-right">
+                    <a href="profile.php" class="dropdown-item">
+                        <i class="fas fa-user-cog mr-2"></i> Profile
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a href="logout.php" class="dropdown-item">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                    </a>
+                </div>
             </li>
         </ul>
     </nav>
@@ -62,10 +72,18 @@
                     </li>
                     <li class="nav-item">
                         <a href="categories.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>">
-                            <i class="nav-icon fas fa-folder"></i>
+                            <i class="nav-icon fas fa-tags"></i>
                             <p>Categories</p>
                         </a>
                     </li>
+                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <li class="nav-item">
+                        <a href="invite_codes.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'invite_codes.php' ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-key"></i>
+                            <p>Invite Codes</p>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
             </nav>
             <!-- /.sidebar-menu -->
