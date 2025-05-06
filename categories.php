@@ -70,135 +70,107 @@ $query = "SELECT c.*, COUNT(p.id) as post_count
           GROUP BY c.id 
           ORDER BY c.name ASC";
 $result = mysqli_query($conn, $query);
+
+// Include header
+require_once 'includes/header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Categories - CMS Sederhana</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">CMS Sederhana</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.php">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="posts.php">Posts</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="categories.php">Categories</a>
-                    </li>
-                </ul>
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">Logout</a>
-                    </li>
-                </ul>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Add New Category</h3>
+            </div>
+            <div class="card-body">
+                <?php if ($error): ?>
+                    <div class="alert alert-danger"><?php echo $error; ?></div>
+                <?php endif; ?>
+                
+                <?php if ($success): ?>
+                    <div class="alert alert-success"><?php echo $success; ?></div>
+                <?php endif; ?>
+
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="name">Category Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <button type="submit" name="add_category" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Category
+                    </button>
+                </form>
             </div>
         </div>
-    </nav>
-
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Add New Category</h3>
-                    </div>
-                    <div class="card-body">
-                        <?php if ($error): ?>
-                            <div class="alert alert-danger"><?php echo $error; ?></div>
-                        <?php endif; ?>
-                        
-                        <?php if ($success): ?>
-                            <div class="alert alert-success"><?php echo $success; ?></div>
-                        <?php endif; ?>
-
-                        <form method="POST" action="">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Category Name</label>
-                                <input type="text" class="form-control" id="name" name="name" required>
-                            </div>
-                            <button type="submit" name="add_category" class="btn btn-primary">Add Category</button>
-                        </form>
-                    </div>
-                </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Categories</h3>
             </div>
-            
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Categories</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Slug</th>
-                                        <th>Posts</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($category = mysqli_fetch_assoc($result)): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($category['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($category['slug']); ?></td>
-                                        <td><?php echo $category['post_count']; ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editCategory<?php echo $category['id']; ?>">
-                                                Edit
-                                            </button>
-                                            <a href="delete_category.php?id=<?php echo $category['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this category?')">Delete</a>
-                                        </td>
-                                    </tr>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Slug</th>
+                                <th>Posts</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($category = mysqli_fetch_assoc($result)): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($category['name']); ?></td>
+                                <td><?php echo htmlspecialchars($category['slug']); ?></td>
+                                <td><?php echo $category['post_count']; ?></td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#editCategory<?php echo $category['id']; ?>">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <a href="delete_category.php?id=<?php echo $category['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this category?')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </a>
+                                </td>
+                            </tr>
 
-                                    <!-- Modal Edit Category -->
-                                    <div class="modal fade" id="editCategory<?php echo $category['id']; ?>" tabindex="-1">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Edit Category</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-                                                <form method="POST" action="">
-                                                    <div class="modal-body">
-                                                        <input type="hidden" name="category_id" value="<?php echo $category['id']; ?>">
-                                                        <div class="mb-3">
-                                                            <label for="edit_name<?php echo $category['id']; ?>" class="form-label">Category Name</label>
-                                                            <input type="text" class="form-control" id="edit_name<?php echo $category['id']; ?>" name="name" value="<?php echo htmlspecialchars($category['name']); ?>" required>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                                        <button type="submit" name="edit_category" class="btn btn-primary">Save changes</button>
-                                                    </div>
-                                                </form>
-                                            </div>
+                            <!-- Modal Edit Category -->
+                            <div class="modal fade" id="editCategory<?php echo $category['id']; ?>" tabindex="-1" role="dialog" aria-labelledby="editCategoryLabel<?php echo $category['id']; ?>" aria-hidden="true">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="editCategoryLabel<?php echo $category['id']; ?>">Edit Category</h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
                                         </div>
+                                        <form method="POST" action="">
+                                            <div class="modal-body">
+                                                <input type="hidden" name="category_id" value="<?php echo $category['id']; ?>">
+                                                <div class="form-group">
+                                                    <label for="name">Category Name</label>
+                                                    <input type="text" class="form-control" name="name" value="<?php echo htmlspecialchars($category['name']); ?>" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                <button type="submit" name="edit_category" class="btn btn-primary">Save changes</button>
+                                            </div>
+                                        </form>
                                     </div>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                </div>
+                            </div>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html> 
+<?php
+// Include footer
+require_once 'includes/footer.php';
+?> 
