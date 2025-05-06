@@ -1,3 +1,8 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +17,49 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
     <!-- Summernote -->
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+    <style>
+        .main-sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+        }
+        .main-header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1100 !important;
+            background: #fff !important;
+        }
+        .content-wrapper {
+            margin-left: 250px;
+            margin-top: 56px;
+            min-height: 100vh;
+            transition: margin-left .3s ease-in-out;
+        }
+        .sidebar-collapse .content-wrapper {
+            margin-left: 4.6rem;
+        }
+        .brand-link {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        @media (max-width: 991.98px) {
+            .content-wrapper {
+                margin-left: 0;
+                margin-top: 60px;
+            }
+            .sidebar-collapse .content-wrapper {
+                margin-left: 0;
+            }
+            .main-sidebar {
+                /* padding-top: 60px; */
+            }
+        }
+    </style>
 </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
@@ -25,7 +73,8 @@
         </ul>
 
         <!-- Right navbar links -->
-        <ul class="navbar-nav ml-auto">
+        <ul class="navbar-nav ml-auto align-items-center flex-row" style="gap: 0.5rem;">
+            <?php if (isset($_SESSION['user_id'])): ?>
             <li class="nav-item dropdown">
                 <a class="nav-link" data-toggle="dropdown" href="#">
                     <i class="far fa-user"></i>
@@ -41,6 +90,16 @@
                     </a>
                 </div>
             </li>
+            <?php else: ?>
+            <li class="nav-item">
+                <span class="nav-link disabled" style="cursor: default;">
+                    <i class="far fa-user"></i> Guest
+                </span>
+            </li>
+            <li class="nav-item">
+                <a href="login.php" class="btn btn-outline-primary">Login</a>
+            </li>
+            <?php endif; ?>
         </ul>
     </nav>
     <!-- /.navbar -->
@@ -48,9 +107,9 @@
     <!-- Main Sidebar Container -->
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <!-- Brand Logo -->
-        <a href="index.php" class="brand-link">
+        <a href="index.php" class="brand-link d-flex align-items-center pr-2">
             <img src="https://adminlte.io/themes/v3/dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
-            <span class="brand-text font-weight-light">CMS Sederhana</span>
+            <span class="brand-text font-weight-light ml-2">CMS Sederhana</span>
         </a>
 
         <!-- Sidebar -->
@@ -58,6 +117,7 @@
             <!-- Sidebar Menu -->
             <nav class="mt-2">
                 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+                    <?php if (isset($_SESSION['user_id'])): ?>
                     <li class="nav-item">
                         <a href="index.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
@@ -76,13 +136,14 @@
                             <p>Categories</p>
                         </a>
                     </li>
-                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                     <li class="nav-item">
                         <a href="invite_codes.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'invite_codes.php' ? 'active' : ''; ?>">
                             <i class="nav-icon fas fa-key"></i>
                             <p>Invite Codes</p>
                         </a>
                     </li>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </ul>
             </nav>
@@ -100,27 +161,29 @@
                     <div class="col-sm-6">
                         <h1 class="m-0">
                             <?php
-                            $page_title = '';
-                            switch(basename($_SERVER['PHP_SELF'])) {
-                                case 'index.php':
-                                    $page_title = 'Dashboard';
-                                    break;
-                                case 'posts.php':
-                                    $page_title = 'Manage Posts';
-                                    break;
-                                case 'categories.php':
-                                    $page_title = 'Manage Categories';
-                                    break;
-                                case 'add_post.php':
-                                    $page_title = 'Add New Post';
-                                    break;
-                                case 'edit_post.php':
-                                    $page_title = 'Edit Post';
-                                    break;
-                                default:
-                                    $page_title = 'CMS Sederhana';
+                            if (isset($_SESSION['user_id'])) {
+                                $page_title = '';
+                                switch(basename($_SERVER['PHP_SELF'])) {
+                                    case 'index.php':
+                                        $page_title = 'Dashboard';
+                                        break;
+                                    case 'posts.php':
+                                        $page_title = 'Manage Posts';
+                                        break;
+                                    case 'categories.php':
+                                        $page_title = 'Manage Categories';
+                                        break;
+                                    case 'add_post.php':
+                                        $page_title = 'Add New Post';
+                                        break;
+                                    case 'edit_post.php':
+                                        $page_title = 'Edit Post';
+                                        break;
+                                    default:
+                                        $page_title = 'CMS Sederhana';
+                                }
+                                echo $page_title;
                             }
-                            echo $page_title;
                             ?>
                         </h1>
                     </div>

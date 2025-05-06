@@ -132,6 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </form>
 
+            <div class="text-center mt-3">
+                <a href="home.php" class="btn btn-outline-secondary">Kembali ke Home</a>
+            </div>
+
             <p class="mt-3 mb-1">
                 <a href="forgot-password.php">I forgot my password</a>
             </p>

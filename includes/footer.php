@@ -29,5 +29,21 @@
         }
     });
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set sidebar state from localStorage
+    if (localStorage.getItem('sidebar-collapsed') === 'true') {
+        document.body.classList.add('sidebar-collapse');
+    }
+    // Listen for sidebar toggle
+    document.querySelectorAll('[data-widget="pushmenu"]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setTimeout(function() {
+                localStorage.setItem('sidebar-collapsed', document.body.classList.contains('sidebar-collapse'));
+            }, 200);
+        });
+    });
+});
+</script>
 </body>
 </html> 
