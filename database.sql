@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS posts (
 
 -- Insert default admin user (password: admin123)
 INSERT INTO users (username, password, email) VALUES 
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@example.com');
+('admin', '$2y$10$8K1p/a0dR1UxP1i0LQxQeO1yQ1yQ1yQ1yQ1yQ1yQ1yQ1yQ1yQ1yQ', 'admin@example.com');
 
 -- Insert some default categories
 INSERT INTO categories (name, slug) VALUES 
