@@ -9,8 +9,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Ambil semua post
-$query = "SELECT * FROM posts ORDER BY created_at DESC";
+// Ambil semua post dengan join ke categories
+$query = "SELECT p.*, c.name as category_name 
+          FROM posts p 
+          LEFT JOIN categories c ON p.category_id = c.id 
+          ORDER BY p.created_at DESC";
 $result = mysqli_query($conn, $query);
 ?>
 
@@ -71,7 +74,7 @@ $result = mysqli_query($conn, $query);
                                     <?php while ($post = mysqli_fetch_assoc($result)): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($post['title']); ?></td>
-                                        <td><?php echo htmlspecialchars($post['category']); ?></td>
+                                        <td><?php echo htmlspecialchars($post['category_name'] ?? 'Uncategorized'); ?></td>
                                         <td><?php echo date('d M Y', strtotime($post['created_at'])); ?></td>
                                         <td>
                                             <a href="edit_post.php?id=<?php echo $post['id']; ?>" class="btn btn-sm btn-primary">Edit</a>
