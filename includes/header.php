@@ -150,6 +150,12 @@ if (session_status() === PHP_SESSION_NONE) {
                             <p>Dashboard</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="read_posts.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'read_posts.php' ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-newspaper"></i>
+                            <p>Read Posts</p>
+                        </a>
+                    </li>
                     <?php if ($_SESSION['role'] === 'admin'): ?>
                     <li class="nav-item">
                         <a href="users.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
@@ -164,12 +170,14 @@ if (session_status() === PHP_SESSION_NONE) {
                             <p>Posts</p>
                         </a>
                     </li>
+                    <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'editor'): ?>
                     <li class="nav-item">
                         <a href="categories.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>">
                             <i class="nav-icon fas fa-tags"></i>
                             <p>Categories</p>
                         </a>
                     </li>
+                    <?php endif; ?>
                     <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                     <li class="nav-item">
                         <a href="invite_codes.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'invite_codes.php' ? 'active' : ''; ?>">
@@ -212,6 +220,10 @@ if (session_status() === PHP_SESSION_NONE) {
                                         break;
                                     case 'edit_post.php':
                                         $page_title = 'Edit Post';
+                                        break;
+                                    case 'read_posts.php':
+                                    case 'view_post.php':
+                                        $page_title = 'Read Posts';
                                         break;
                                     default:
                                         $page_title = 'CMS Sederhana';
