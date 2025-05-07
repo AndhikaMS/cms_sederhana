@@ -15,6 +15,11 @@ if (!isset($_GET['id'])) {
     exit();
 }
 
+if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'editor') {
+    header("Location: categories.php");
+    exit();
+}
+
 $category_id = clean($_GET['id']);
 
 // Hapus kategori

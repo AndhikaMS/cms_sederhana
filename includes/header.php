@@ -24,6 +24,8 @@ if (session_status() === PHP_SESSION_NONE) {
             left: 0 !important;
             height: 100vh !important;
             z-index: 9999 !important;
+            width: 250px;
+            transition: width .3s ease-in-out !important;
         }
         .main-header {
             position: fixed !important;
@@ -34,29 +36,53 @@ if (session_status() === PHP_SESSION_NONE) {
             background: #fff !important;
         }
         .content-wrapper {
-            margin-left: 250px;
+            margin-left: 250px !important;
             margin-top: 56px;
             min-height: 100vh;
-            transition: margin-left .3s ease-in-out;
+            transition: margin-left .3s ease-in-out !important;
+            width: calc(100% - 250px) !important;
         }
         .sidebar-collapse .content-wrapper {
-            margin-left: 4.6rem;
+            margin-left: 4.6rem !important;
+            width: calc(100% - 4.6rem) !important;
+        }
+        .sidebar-collapse .main-sidebar {
+            width: 4.6rem !important;
+        }
+        .sidebar-collapse .main-sidebar:hover {
+            width: 250px !important;
+            z-index: 9999 !important;
         }
         .brand-link {
             display: flex;
             align-items: center;
             justify-content: flex-start;
+            overflow: hidden;
+        }
+        .container-fluid {
+            width: 100% !important;
+            padding-right: 1rem !important;
+            padding-left: 1rem !important;
+            margin-right: auto !important;
+            margin-left: auto !important;
         }
         @media (max-width: 991.98px) {
             .content-wrapper {
-                margin-left: 0;
+                margin-left: 0 !important;
                 margin-top: 60px;
+                width: 100% !important;
             }
             .sidebar-collapse .content-wrapper {
-                margin-left: 0;
+                margin-left: 0 !important;
+                width: 100% !important;
             }
             .main-sidebar {
-                /* padding-top: 60px; */
+                width: 250px;
+                transform: translateX(-250px);
+                transition: transform .3s ease-in-out !important;
+            }
+            .sidebar-open .main-sidebar {
+                transform: translateX(0);
             }
         }
     </style>
@@ -124,6 +150,14 @@ if (session_status() === PHP_SESSION_NONE) {
                             <p>Dashboard</p>
                         </a>
                     </li>
+                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <li class="nav-item">
+                        <a href="users.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
+                            <i class="nav-icon fas fa-users"></i>
+                            <p>Users</p>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <li class="nav-item">
                         <a href="posts.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'posts.php' ? 'active' : ''; ?>">
                             <i class="nav-icon fas fa-file-alt"></i>

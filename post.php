@@ -102,7 +102,7 @@ $related_result = mysqli_stmt_get_result($stmt);
                                     <?php while ($related = mysqli_fetch_assoc($related_result)): ?>
                                         <div class="col-md-4">
                                             <div class="card">
-                                                <?php if ($related['featured_image']): ?>
+                                                <?php if (!empty($related['featured_image'])): ?>
                                                     <img src="<?php echo htmlspecialchars($related['featured_image']); ?>" 
                                                          class="card-img-top" 
                                                          alt="<?php echo htmlspecialchars($related['title']); ?>">

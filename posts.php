@@ -19,6 +19,9 @@ $result = mysqli_query($conn, $query);
 
 // Include header
 require_once 'includes/header.php';
+
+$user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
 ?>
 
 <div class="row">
@@ -58,12 +61,23 @@ require_once 'includes/header.php';
                                 </td>
                                 <td><?php echo date('d M Y', strtotime($post['created_at'])); ?></td>
                                 <td>
-                                    <a href="edit_post.php?id=<?php echo $post['id']; ?>" class="btn btn-primary btn-sm">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </a>
-                                    <a href="delete_post.php?id=<?php echo $post['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this post?')">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </a>
+                                    <?php if ($role === 'admin' || $role === 'editor') : ?>
+                                        <?php if ($post['user_id'] == $user_id): ?>
+                                            <a href="edit_post.php?id=<?php echo $post['id']; ?>" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </a>
+                                        <?php endif; ?>
+                                        <a href="delete_post.php?id=<?php echo $post['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this post?')">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                    <?php elseif ($role === 'author' && $post['user_id'] == $user_id): ?>
+                                        <a href="edit_post.php?id=<?php echo $post['id']; ?>" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <a href="delete_post.php?id=<?php echo $post['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this post?')">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endwhile; ?>

@@ -14,6 +14,10 @@ $success = '';
 
 // Proses form submission untuk menambah kategori
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_category'])) {
+    if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'editor') {
+        header("Location: categories.php");
+        exit();
+    }
     $name = clean($_POST['name']);
     $slug = strtolower(str_replace(' ', '-', $name));
     
@@ -39,6 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_category'])) {
 
 // Proses form submission untuk mengedit kategori
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_category'])) {
+    if ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'editor') {
+        header("Location: categories.php");
+        exit();
+    }
     $category_id = clean($_POST['category_id']);
     $name = clean($_POST['name']);
     $slug = strtolower(str_replace(' ', '-', $name));
@@ -90,6 +98,7 @@ require_once 'includes/header.php';
                     <div class="alert alert-success"><?php echo $success; ?></div>
                 <?php endif; ?>
 
+                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'editor'): ?>
                 <form method="POST" action="">
                     <div class="form-group">
                         <label for="name">Category Name</label>
@@ -99,6 +108,7 @@ require_once 'includes/header.php';
                         <i class="fas fa-plus"></i> Add Category
                     </button>
                 </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -126,16 +136,19 @@ require_once 'includes/header.php';
                                 <td><?php echo htmlspecialchars($category['slug']); ?></td>
                                 <td><?php echo $category['post_count']; ?></td>
                                 <td>
+                                    <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'editor'): ?>
                                     <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#editCategory<?php echo $category['id']; ?>">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
                                     <a href="delete_category.php?id=<?php echo $category['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this category?')">
                                         <i class="fas fa-trash"></i> Delete
                                     </a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
 
                             <!-- Modal Edit Category -->
+                            <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'editor'): ?>
                             <div class="modal fade" id="editCategory<?php echo $category['id']; ?>" tabindex="-1" role="dialog" aria-labelledby="editCategoryLabel<?php echo $category['id']; ?>" aria-hidden="true">
                                 <div class="modal-dialog" role="document">
                                     <div class="modal-content">
@@ -161,6 +174,7 @@ require_once 'includes/header.php';
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             <?php endwhile; ?>
                         </tbody>
                     </table>

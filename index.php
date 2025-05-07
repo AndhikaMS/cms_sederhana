@@ -6,20 +6,59 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once 'config/database.php';
 require_once 'includes/functions.php';
+require_once 'includes/user_functions.php';
 
-// Get latest posts
-$query = "SELECT p.*, c.name as category_name, u.username as author_name 
-          FROM posts p 
-          LEFT JOIN categories c ON p.category_id = c.id 
-          LEFT JOIN users u ON p.user_id = u.id 
-          WHERE p.status = 'published' 
-          ORDER BY p.created_at DESC 
-          LIMIT 10";
-$result = mysqli_query($conn, $query);
-if ($result === false) {
-    echo '<div class="alert alert-danger">Error fetching posts: ' . htmlspecialchars(mysqli_error($conn)) . '</div>';
-    $result = [];
+// Get statistics based on role
+$stats = [];
+if ($_SESSION['role'] === 'admin') {
+    // Admin stats
+    $query = "SELECT 
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(*) FROM posts) as total_posts,
+        (SELECT COUNT(*) FROM categories) as total_categories,
+        (SELECT COUNT(*) FROM posts WHERE status = 'published') as published_posts,
+        (SELECT COUNT(*) FROM posts WHERE status = 'draft') as draft_posts";
+    $result = mysqli_query($conn, $query);
+    $stats = mysqli_fetch_assoc($result);
+} elseif ($_SESSION['role'] === 'editor') {
+    // Editor stats
+    $query = "SELECT 
+        (SELECT COUNT(*) FROM posts) as total_posts,
+        (SELECT COUNT(*) FROM categories) as total_categories,
+        (SELECT COUNT(*) FROM posts WHERE status = 'published') as published_posts,
+        (SELECT COUNT(*) FROM posts WHERE status = 'draft') as draft_posts";
+    $result = mysqli_query($conn, $query);
+    $stats = mysqli_fetch_assoc($result);
+} else {
+    // Author stats
+    $user_id = $_SESSION['user_id'];
+    $query = "SELECT 
+        (SELECT COUNT(*) FROM posts WHERE user_id = $user_id) as total_posts,
+        (SELECT COUNT(*) FROM posts WHERE user_id = $user_id AND status = 'published') as published_posts,
+        (SELECT COUNT(*) FROM posts WHERE user_id = $user_id AND status = 'draft') as draft_posts";
+    $result = mysqli_query($conn, $query);
+    $stats = mysqli_fetch_assoc($result);
 }
+
+// Get latest posts based on role
+if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'editor') {
+    $query = "SELECT p.*, c.name as category_name, u.username as author_name 
+              FROM posts p 
+              LEFT JOIN categories c ON p.category_id = c.id 
+              LEFT JOIN users u ON p.user_id = u.id 
+              ORDER BY p.created_at DESC 
+              LIMIT 5";
+} else {
+    $user_id = $_SESSION['user_id'];
+    $query = "SELECT p.*, c.name as category_name, u.username as author_name 
+              FROM posts p 
+              LEFT JOIN categories c ON p.category_id = c.id 
+              LEFT JOIN users u ON p.user_id = u.id 
+              WHERE p.user_id = $user_id 
+              ORDER BY p.created_at DESC 
+              LIMIT 5";
+}
+$latest_posts = mysqli_query($conn, $query);
 
 // Get popular categories
 $cat_query = "SELECT c.*, COUNT(p.id) as post_count 
@@ -28,164 +67,157 @@ $cat_query = "SELECT c.*, COUNT(p.id) as post_count
               GROUP BY c.id 
               ORDER BY post_count DESC 
               LIMIT 5";
-$cat_result = mysqli_query($conn, $cat_query);
-if ($cat_result === false) {
-    echo '<div class="alert alert-danger">Error fetching categories: ' . htmlspecialchars(mysqli_error($conn)) . '</div>';
-    $cat_result = [];
-}
+$popular_categories = mysqli_query($conn, $cat_query);
+
+include 'includes/header.php';
 ?>
 
-<?php include 'includes/header.php'; ?>
-
-<?php $is_guest = !isset($_SESSION['user_id']); ?>
 <div class="content-wrapper">
-    <!-- Hero Section -->
-    <section class="jumbotron text-center mb-4" style="background: #f8f9fa; border-radius: 0 0 1rem 1rem; padding: 2.5rem 1rem 2rem 1rem;">
-        <div class="container">
-            <h1 class="display-4">Selamat Datang di CMS Sederhana!</h1>
-            <p class="lead">Temukan artikel menarik, tips, dan berita terbaru di sini. Jelajahi kategori atau gunakan pencarian untuk menemukan topik favoritmu.</p>
-            <a class="btn btn-primary btn-lg" href="#articles" role="button">Lihat Artikel Terbaru</a>
-        </div>
-    </section>
-    <section class="content-header" id="articles">
+    <div class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h2 class="mb-3">Artikel Terbaru</h2>
+                    <h1 class="m-0">Dashboard</h1>
                 </div>
             </div>
         </div>
-    </section>
-    <section class="content">
+    </div>
+
+    <div class="content">
         <div class="container-fluid">
-            <div class="row justify-content-center">
-                <?php if ($is_guest): ?>
-                    <div class="col-md-8">
-                        <?php // Artikel utama ?>
-                        <?php if ($result && is_object($result)): while ($post = mysqli_fetch_assoc($result)): ?>
-                            <div class="card mb-4">
-                                <div class="card-body">
-                                    <h2 class="card-title">
-                                        <a href="post.php?id=<?php echo $post['id']; ?>" class="text-dark">
-                                            <?php echo htmlspecialchars($post['title']); ?>
-                                        </a>
-                                    </h2>
-                                    <p class="card-text text-muted">
-                                        By <?php echo htmlspecialchars($post['author_name']); ?> | 
-                                        Category: <?php echo htmlspecialchars($post['category_name']); ?> | 
-                                        <?php echo date('F j, Y', strtotime($post['created_at'])); ?>
-                                    </p>
-                                    <p class="card-text">
-                                        <?php echo htmlspecialchars_decode($post['content']); ?>
-                                    </p>
-                                    <a href="post.php?id=<?php echo $post['id']; ?>" class="btn btn-primary">Read More</a>
-                                </div>
-                            </div>
-                        <?php endwhile; endif; ?>
-                        <!-- Sidebar kategori dan search di bawah -->
-                        <div class="row mt-4">
-                            <div class="col-md-6 mb-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h3 class="card-title">Categories</h3>
-                                    </div>
-                                    <div class="card-body">
-                                        <ul class="list-unstyled">
-                                            <?php if ($cat_result && is_object($cat_result)): while ($category = mysqli_fetch_assoc($cat_result)): ?>
-                                                <li class="mb-2">
-                                                    <a href="category.php?id=<?php echo $category['id']; ?>" class="text-dark">
-                                                        <?php echo htmlspecialchars($category['name']); ?>
-                                                        <span class="badge badge-primary float-right"><?php echo $category['post_count']; ?></span>
-                                                    </a>
-                                                </li>
-                                            <?php endwhile; endif; ?>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h3 class="card-title">Search</h3>
-                                    </div>
-                                    <div class="card-body">
-                                        <form action="search.php" method="GET">
-                                            <div class="input-group">
-                                                <input type="text" name="q" class="form-control" placeholder="Search for...">
-                                                <div class="input-group-append">
-                                                    <button class="btn btn-primary" type="submit">Go!</button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
+            <!-- Statistics Cards -->
+            <div class="row">
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                <!-- Admin Stats -->
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-info">
+                        <div class="inner">
+                            <h3><?php echo $stats['total_users']; ?></h3>
+                            <p>Total Users</p>
                         </div>
-                    </div>
-                <?php else: ?>
-                    <!-- Layout lama untuk user login -->
-                    <div class="col-md-8">
-                        <?php if ($result && is_object($result)): while ($post = mysqli_fetch_assoc($result)): ?>
-                            <div class="card mb-4">
-                                <div class="card-body">
-                                    <h2 class="card-title">
-                                        <a href="post.php?id=<?php echo $post['id']; ?>" class="text-dark">
-                                            <?php echo htmlspecialchars($post['title']); ?>
-                                        </a>
-                                    </h2>
-                                    <p class="card-text text-muted">
-                                        By <?php echo htmlspecialchars($post['author_name']); ?> | 
-                                        Category: <?php echo htmlspecialchars($post['category_name']); ?> | 
-                                        <?php echo date('F j, Y', strtotime($post['created_at'])); ?>
-                                    </p>
-                                    <p class="card-text">
-                                        <?php echo htmlspecialchars_decode($post['content']); ?>
-                                    </p>
-                                    <a href="post.php?id=<?php echo $post['id']; ?>" class="btn btn-primary">Read More</a>
-                                </div>
-                            </div>
-                        <?php endwhile; endif; ?>
-                    </div>
-                    <div class="col-md-4">
-                        <!-- Categories Widget -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h3 class="card-title">Categories</h3>
-                            </div>
-                            <div class="card-body">
-                                <ul class="list-unstyled">
-                                    <?php if ($cat_result && is_object($cat_result)): while ($category = mysqli_fetch_assoc($cat_result)): ?>
-                                        <li class="mb-2">
-                                            <a href="category.php?id=<?php echo $category['id']; ?>" class="text-dark">
-                                                <?php echo htmlspecialchars($category['name']); ?>
-                                                <span class="badge badge-primary float-right"><?php echo $category['post_count']; ?></span>
-                                            </a>
-                                        </li>
-                                    <?php endwhile; endif; ?>
-                                </ul>
-                            </div>
+                        <div class="icon">
+                            <i class="fas fa-users"></i>
                         </div>
-                        <!-- Search Widget -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h3 class="card-title">Search</h3>
-                            </div>
-                            <div class="card-body">
-                                <form action="search.php" method="GET">
-                                    <div class="input-group">
-                                        <input type="text" name="q" class="form-control" placeholder="Search for...">
-                                        <div class="input-group-append">
-                                            <button class="btn btn-primary" type="submit">Go!</button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+                        <a href="users.php" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
                     </div>
+                </div>
                 <?php endif; ?>
+
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-success">
+                        <div class="inner">
+                            <h3><?php echo $stats['total_posts']; ?></h3>
+                            <p>Total Posts</p>
+                        </div>
+                        <div class="icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <a href="posts.php" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+                    </div>
+                </div>
+
+                <?php if ($_SESSION['role'] !== 'author'): ?>
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-warning">
+                        <div class="inner">
+                            <h3><?php echo $stats['total_categories']; ?></h3>
+                            <p>Categories</p>
+                        </div>
+                        <div class="icon">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                        <a href="categories.php" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-danger">
+                        <div class="inner">
+                            <h3><?php echo $stats['published_posts']; ?></h3>
+                            <p>Published Posts</p>
+                        </div>
+                        <div class="icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <a href="posts.php?status=published" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Latest Posts -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Latest Posts</h3>
+                            <div class="card-tools">
+                                <a href="posts.php" class="btn btn-tool">
+                                    <i class="fas fa-list"></i> View All
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Category</th>
+                                            <th>Author</th>
+                                            <th>Status</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php while ($post = mysqli_fetch_assoc($latest_posts)): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($post['title']); ?></td>
+                                            <td><?php echo htmlspecialchars($post['category_name'] ?? 'Uncategorized'); ?></td>
+                                            <td><?php echo htmlspecialchars($post['author_name']); ?></td>
+                                            <td>
+                                                <span class="badge badge-<?php echo $post['status'] == 'published' ? 'success' : 'warning'; ?>">
+                                                    <?php echo ucfirst($post['status']); ?>
+                                                </span>
+                                            </td>
+                                            <td><?php echo date('d M Y', strtotime($post['created_at'])); ?></td>
+                                        </tr>
+                                        <?php endwhile; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Popular Categories -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Popular Categories</h3>
+                            <?php if ($_SESSION['role'] !== 'author'): ?>
+                            <div class="card-tools">
+                                <a href="categories.php" class="btn btn-tool">
+                                    <i class="fas fa-list"></i> View All
+                                </a>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush">
+                                <?php while ($category = mysqli_fetch_assoc($popular_categories)): ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <?php echo htmlspecialchars($category['name']); ?>
+                                    <span class="badge badge-primary badge-pill"><?php echo $category['post_count']; ?></span>
+                                </li>
+                                <?php endwhile; ?>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </section>
+    </div>
 </div>
 
 <?php include 'includes/footer.php'; ?> 
