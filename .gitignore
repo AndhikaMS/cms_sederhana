@@ -1,0 +1,61 @@
+# Environment
+.env
+.env.backup
+.phpunit.result.cache
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Storage
+/app/storage/logs/*
+/app/storage/cache/*
+/app/storage/sessions/*
+!/app/storage/logs/.gitkeep
+!/app/storage/cache/.gitkeep
+!/app/storage/sessions/.gitkeep
+
+# Uploads
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Cache
+.php_cs.cache
+.php-cs-fixer.cache
+.phpunit.cache/
+
+# Backup
+*.bak
+*.swp
+*~
+
+# Build
+/public/hot
+/public/storage
+/public/build
+/public/css
+/public/js
+/public/mix-manifest.json
+
+# Testing
+/coverage/
+.phpunit.cache/
+.phpunit.result.cache 
