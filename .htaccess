@@ -1,0 +1,30 @@
+RewriteEngine On
+
+# Redirect semua request ke public/index.php kecuali file dan direktori yang ada
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.php [QSA,L]
+
+# Protect sensitive directories
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect app directory
+<IfModule mod_rewrite.c>
+    RewriteRule ^app/ - [F,L]
+    RewriteRule ^database/ - [F,L]
+    RewriteRule ^storage/ - [F,L]
+    RewriteRule ^vendor/ - [F,L]
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "^(composer\.json|composer\.lock|\.env|\.gitignore|README\.md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Enable PHP error display for development
+php_flag display_errors on
+php_value error_reporting E_ALL 
