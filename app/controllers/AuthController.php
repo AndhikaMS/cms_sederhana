@@ -3,275 +3,396 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\UserModel;
+use App\Models\RoleModel;
+use App\Services\Auth;
 
 class AuthController extends Controller {
+    private $auth;
     private $userModel;
+    private $roleModel;
 
     public function __construct() {
         parent::__construct();
+        $this->auth = Auth::getInstance();
         $this->userModel = new UserModel();
-    }
-
-    public function loginForm() {
-        // Redirect if already logged in
-        if ($this->isLoggedIn()) {
-            $this->redirect('/');
-        }
-
-        // Check remember me cookie
-        if (isset($_COOKIE['remember_token'])) {
-            $user = $this->userModel->findByRememberToken($_COOKIE['remember_token']);
-            if ($user) {
-                $this->loginUser($user, true);
-                $this->redirect('/');
-            }
-        }
-
-        $this->view('auth/login');
+        $this->roleModel = new RoleModel();
     }
 
     public function login() {
-        if (!$this->isPost()) {
-            $this->redirect('/login');
-        }
-
-        $username = $this->post('username');
-        $password = $this->post('password');
-        $remember = $this->post('remember') ? true : false;
-
-        // Validate input
-        if (empty($username) || empty($password)) {
-            $this->setFlash('error', 'Username and password are required!');
-            $this->redirect('/login');
-        }
-
-        // Check user
-        $user = $this->userModel->findByUsername($username);
-        if (!$user || !password_verify($password, $user['password'])) {
-            $this->setFlash('error', 'Invalid username or password!');
-            $this->redirect('/login');
-        }
-
-        // Login user
-        $this->loginUser($user, $remember);
-        $this->redirect('/');
-    }
-
-    public function registerForm() {
         // Redirect if already logged in
-        if ($this->isLoggedIn()) {
-            $this->redirect('/');
+        $this->auth->requireGuest();
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $email = $_POST['email'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $remember = isset($_POST['remember']);
+            
+            // Validate CSRF token
+            if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                $this->setFlash('error', 'Invalid request');
+                redirect('auth/login');
+            }
+            
+            // Validate input
+            $errors = [];
+            
+            if (empty($email)) {
+                $errors['email'] = 'Email is required';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors['email'] = 'Invalid email format';
+            }
+            
+            if (empty($password)) {
+                $errors['password'] = 'Password is required';
+            }
+            
+            if (empty($errors)) {
+                if ($this->auth->login($email, $password, $remember)) {
+                    // Redirect to intended URL or dashboard
+                    redirect($this->auth->getIntendedUrl());
+                } else {
+                    $this->setFlash('error', 'Invalid email or password');
+                }
+            } else {
+                $this->setFlash('errors', $errors);
+                $this->setFlash('old', $_POST);
+            }
         }
-
-        $this->view('auth/register');
+        
+        // Show login form
+        $this->view('auth/login', [
+            'title' => 'Login',
+            'csrf_token' => $this->generateCsrfToken()
+        ]);
     }
 
     public function register() {
-        if (!$this->isPost()) {
-            $this->redirect('/register');
-        }
-
-        $username = $this->post('username');
-        $email = $this->post('email');
-        $password = $this->post('password');
-        $confirm_password = $this->post('confirm_password');
-        $invite_code = $this->post('invite_code');
-
-        // Validate input
-        if (empty($username) || empty($email) || empty($password) || empty($invite_code)) {
-            $this->setFlash('error', 'All fields are required!');
-            $this->redirect('/register');
-        }
-
-        if ($password !== $confirm_password) {
-            $this->setFlash('error', 'Passwords do not match!');
-            $this->redirect('/register');
-        }
-
-        if (strlen($password) < 6) {
-            $this->setFlash('error', 'Password must be at least 6 characters long!');
-            $this->redirect('/register');
-        }
-
-        // Check if username/email exists
-        if ($this->userModel->findByUsername($username) || $this->userModel->findByEmail($email)) {
-            $this->setFlash('error', 'Username or email already exists!');
-            $this->redirect('/register');
-        }
-
-        // Validate invite code
-        $invite = $this->validateInviteCode($invite_code);
-        if (!$invite) {
-            $this->setFlash('error', 'Invalid or expired invite code!');
-            $this->redirect('/register');
-        }
-
-        // Create user
-        $user_id = $this->userModel->create([
-            'username' => $username,
-            'email' => $email,
-            'password' => $password,
-            'role' => $invite['role']
-        ]);
-
-        if ($user_id) {
-            // Update invite code status
-            $this->markInviteCodeAsUsed($invite['id'], $user_id);
+        // Redirect if already logged in
+        $this->auth->requireGuest();
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $name = $_POST['name'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $password_confirmation = $_POST['password_confirmation'] ?? '';
             
-            $this->setFlash('success', 'Registration successful! You can now login.');
-            $this->redirect('/login');
-        } else {
-            $this->setFlash('error', 'Error registering user!');
-            $this->redirect('/register');
+            // Validate CSRF token
+            if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                $this->setFlash('error', 'Invalid request');
+                redirect('auth/register');
+            }
+            
+            // Validate input
+            $errors = [];
+            
+            if (empty($name)) {
+                $errors['name'] = 'Name is required';
+            } elseif (strlen($name) < 3) {
+                $errors['name'] = 'Name must be at least 3 characters';
+            }
+            
+            if (empty($email)) {
+                $errors['email'] = 'Email is required';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors['email'] = 'Invalid email format';
+            } elseif ($this->userModel->getByEmail($email)) {
+                $errors['email'] = 'Email already registered';
+            }
+            
+            if (empty($password)) {
+                $errors['password'] = 'Password is required';
+            } elseif (strlen($password) < 8) {
+                $errors['password'] = 'Password must be at least 8 characters';
+            }
+            
+            if ($password !== $password_confirmation) {
+                $errors['password_confirmation'] = 'Password confirmation does not match';
+            }
+            
+            if (empty($errors)) {
+                // Get default role
+                $defaultRole = $this->roleModel->getBySlug('user');
+                
+                if ($this->auth->register([
+                    'name' => $name,
+                    'email' => $email,
+                    'password' => $password,
+                    'role_id' => $defaultRole['id'],
+                    'status' => 'active'
+                ])) {
+                    $this->setFlash('success', 'Registration successful! Please check your email to verify your account.');
+                    redirect('auth/login');
+                } else {
+                    $this->setFlash('error', 'Registration failed. Please try again.');
+                }
+            } else {
+                $this->setFlash('errors', $errors);
+                $this->setFlash('old', $_POST);
+            }
         }
+        
+        // Show registration form
+        $this->view('auth/register', [
+            'title' => 'Register',
+            'csrf_token' => $this->generateCsrfToken()
+        ]);
     }
 
     public function logout() {
-        // Clear remember me cookie if exists
-        if (isset($_COOKIE['remember_token'])) {
-            setcookie('remember_token', '', time() - 3600, '/');
-        }
-
-        // Clear session
-        session_destroy();
-        
-        $this->redirect('/login');
+        $this->auth->logout();
+        redirect('auth/login');
     }
 
     public function forgotPassword() {
-        if ($this->isPost()) {
-            $email = $this->post('email');
+        // Redirect if already logged in
+        $this->auth->requireGuest();
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $email = $_POST['email'] ?? '';
+            
+            // Validate CSRF token
+            if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                $this->setFlash('error', 'Invalid request');
+                redirect('auth/forgot-password');
+            }
+            
+            // Validate input
+            $errors = [];
             
             if (empty($email)) {
-                $this->setFlash('error', 'Email is required!');
-                $this->redirect('/forgot-password');
-            }
-
-            $user = $this->userModel->findByEmail($email);
-            if ($user) {
-                $token = $this->generatePasswordResetToken($user['id']);
-                // TODO: Send reset password email
-                $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "/reset-password?token=" . $token;
-                $this->setFlash('success', "Password reset link has been sent to your email. For testing, here's the link: <a href='$reset_link'>Reset Password</a>");
-            } else {
-                $this->setFlash('error', 'Email not found!');
+                $errors['email'] = 'Email is required';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors['email'] = 'Invalid email format';
             }
             
-            $this->redirect('/forgot-password');
+            if (empty($errors)) {
+                if ($this->auth->forgotPassword($email)) {
+                    $this->setFlash('success', 'Password reset instructions have been sent to your email.');
+                    redirect('auth/login');
+                } else {
+                    // Don't reveal if email exists or not
+                    $this->setFlash('success', 'If your email is registered, you will receive password reset instructions.');
+                    redirect('auth/login');
+                }
+            } else {
+                $this->setFlash('errors', $errors);
+                $this->setFlash('old', $_POST);
+            }
         }
-
-        $this->view('auth/forgot-password');
+        
+        // Show forgot password form
+        $this->view('auth/forgot-password', [
+            'title' => 'Forgot Password',
+            'csrf_token' => $this->generateCsrfToken()
+        ]);
     }
 
-    public function resetPassword() {
-        $token = $this->get('token');
+    public function resetPassword($token = null) {
+        // Redirect if already logged in
+        $this->auth->requireGuest();
         
         if (!$token) {
-            $this->redirect('/forgot-password');
+            redirect('auth/forgot-password');
         }
-
-        $reset = $this->verifyPasswordResetToken($token);
-        if (!$reset) {
-            $this->setFlash('error', 'Invalid or expired reset token!');
-            $this->redirect('/forgot-password');
-        }
-
-        if ($this->isPost()) {
-            $password = $this->post('password');
-            $confirm_password = $this->post('confirm_password');
-
-            if (empty($password) || empty($confirm_password)) {
-                $this->setFlash('error', 'All fields are required!');
-                $this->redirect('/reset-password?token=' . $token);
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $password = $_POST['password'] ?? '';
+            $password_confirmation = $_POST['password_confirmation'] ?? '';
+            
+            // Validate CSRF token
+            if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                $this->setFlash('error', 'Invalid request');
+                redirect("auth/reset-password/$token");
             }
-
-            if ($password !== $confirm_password) {
-                $this->setFlash('error', 'Passwords do not match!');
-                $this->redirect('/reset-password?token=' . $token);
+            
+            // Validate input
+            $errors = [];
+            
+            if (empty($password)) {
+                $errors['password'] = 'Password is required';
+            } elseif (strlen($password) < 8) {
+                $errors['password'] = 'Password must be at least 8 characters';
             }
-
-            if (strlen($password) < 6) {
-                $this->setFlash('error', 'Password must be at least 6 characters long!');
-                $this->redirect('/reset-password?token=' . $token);
+            
+            if ($password !== $password_confirmation) {
+                $errors['password_confirmation'] = 'Password confirmation does not match';
             }
-
-            if ($this->userModel->updatePassword($reset['user_id'], $password)) {
-                $this->markPasswordResetTokenAsUsed($token);
-                $this->setFlash('success', 'Password has been reset successfully!');
-                $this->redirect('/login');
+            
+            if (empty($errors)) {
+                if ($this->auth->resetPassword($token, $password)) {
+                    $this->setFlash('success', 'Your password has been reset. You can now login with your new password.');
+                    redirect('auth/login');
+                } else {
+                    $this->setFlash('error', 'Invalid or expired reset token.');
+                    redirect('auth/forgot-password');
+                }
             } else {
-                $this->setFlash('error', 'Error resetting password!');
-                $this->redirect('/reset-password?token=' . $token);
+                $this->setFlash('errors', $errors);
             }
         }
-
-        $this->view('auth/reset-password', ['token' => $token]);
+        
+        // Show reset password form
+        $this->view('auth/reset-password', [
+            'title' => 'Reset Password',
+            'token' => $token,
+            'csrf_token' => $this->generateCsrfToken()
+        ]);
     }
 
-    private function loginUser($user, $remember = false) {
-        // Set session
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];
-
-        // Update last login
-        $this->userModel->updateLastLogin($user['id']);
-
-        // Log activity
-        $this->userModel->logActivity($user['id'], 'login', 'User logged in successfully');
-
-        // Handle remember me
-        if ($remember) {
-            $token = bin2hex(random_bytes(32));
-            $this->userModel->update($user['id'], ['remember_token' => $token]);
-            setcookie('remember_token', $token, time() + (86400 * 30), '/'); // 30 days
+    public function verifyEmail($token = null) {
+        // Redirect if already logged in
+        $this->auth->requireGuest();
+        
+        if (!$token) {
+            redirect('auth/login');
         }
-    }
-
-    private function validateInviteCode($code) {
-        $code = $this->clean($code);
-        $query = "SELECT * FROM invite_codes 
-                 WHERE code = '$code' 
-                 AND is_used = 0 
-                 AND (expires_at IS NULL OR expires_at > NOW())";
-        $result = $this->query($query);
-        return $result->fetch_assoc();
-    }
-
-    private function markInviteCodeAsUsed($code_id, $user_id) {
-        $code_id = (int)$code_id;
-        $user_id = (int)$user_id;
-        $query = "UPDATE invite_codes 
-                 SET is_used = 1, used_by = $user_id 
-                 WHERE id = $code_id";
-        return $this->query($query);
-    }
-
-    private function generatePasswordResetToken($user_id) {
-        $user_id = (int)$user_id;
-        $token = bin2hex(random_bytes(32));
-        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
         
-        $query = "INSERT INTO password_resets (user_id, token, expires_at) 
-                 VALUES ($user_id, '$token', '$expires')";
-        $this->query($query);
+        if ($this->auth->verifyEmail($token)) {
+            $this->setFlash('success', 'Your email has been verified. You can now login.');
+        } else {
+            $this->setFlash('error', 'Invalid or expired verification token.');
+        }
         
-        return $token;
+        redirect('auth/login');
     }
 
-    private function verifyPasswordResetToken($token) {
-        $token = $this->clean($token);
-        $query = "SELECT * FROM password_resets 
-                 WHERE token = '$token' 
-                 AND used = 0 
-                 AND expires_at > NOW()";
-        $result = $this->query($query);
-        return $result->fetch_assoc();
+    public function profile() {
+        // Require login
+        $this->auth->requireLogin();
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $name = $_POST['name'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $current_password = $_POST['current_password'] ?? '';
+            $new_password = $_POST['new_password'] ?? '';
+            $new_password_confirmation = $_POST['new_password_confirmation'] ?? '';
+            
+            // Validate CSRF token
+            if (!$this->validateCsrfToken($_POST['csrf_token'] ?? '')) {
+                $this->setFlash('error', 'Invalid request');
+                redirect('auth/profile');
+            }
+            
+            // Validate input
+            $errors = [];
+            
+            if (empty($name)) {
+                $errors['name'] = 'Name is required';
+            } elseif (strlen($name) < 3) {
+                $errors['name'] = 'Name must be at least 3 characters';
+            }
+            
+            if (empty($email)) {
+                $errors['email'] = 'Email is required';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors['email'] = 'Invalid email format';
+            } elseif ($email !== $this->auth->getUser()['email'] && $this->userModel->getByEmail($email)) {
+                $errors['email'] = 'Email already registered';
+            }
+            
+            // Only validate password if user wants to change it
+            if (!empty($current_password) || !empty($new_password) || !empty($new_password_confirmation)) {
+                if (empty($current_password)) {
+                    $errors['current_password'] = 'Current password is required to change password';
+                } elseif (!$this->auth->validatePassword($current_password)) {
+                    $errors['current_password'] = 'Current password is incorrect';
+                }
+                
+                if (empty($new_password)) {
+                    $errors['new_password'] = 'New password is required';
+                } elseif (strlen($new_password) < 8) {
+                    $errors['new_password'] = 'New password must be at least 8 characters';
+                }
+                
+                if ($new_password !== $new_password_confirmation) {
+                    $errors['new_password_confirmation'] = 'Password confirmation does not match';
+                }
+            }
+            
+            if (empty($errors)) {
+                $data = [
+                    'name' => $name,
+                    'email' => $email
+                ];
+                
+                // Update password if provided
+                if (!empty($new_password)) {
+                    $data['password'] = $new_password;
+                }
+                
+                // Handle avatar upload
+                if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+                    $avatar = $_FILES['avatar'];
+                    
+                    // Validate file type
+                    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                    if (!in_array($avatar['type'], $allowedTypes)) {
+                        $errors['avatar'] = 'Only JPG, PNG and GIF images are allowed';
+                    }
+                    
+                    // Validate file size (max 2MB)
+                    if ($avatar['size'] > 2 * 1024 * 1024) {
+                        $errors['avatar'] = 'Image size must be less than 2MB';
+                    }
+                    
+                    if (empty($errors)) {
+                        // Generate unique filename
+                        $extension = pathinfo($avatar['name'], PATHINFO_EXTENSION);
+                        $filename = uniqid() . '.' . $extension;
+                        $uploadPath = 'uploads/avatars/' . $filename;
+                        
+                        // Create directory if not exists
+                        if (!is_dir('uploads/avatars')) {
+                            mkdir('uploads/avatars', 0777, true);
+                        }
+                        
+                        // Move uploaded file
+                        if (move_uploaded_file($avatar['tmp_name'], $uploadPath)) {
+                            // Delete old avatar if exists
+                            $oldAvatar = $this->auth->getUser()['avatar'];
+                            if ($oldAvatar && file_exists($oldAvatar)) {
+                                unlink($oldAvatar);
+                            }
+                            
+                            $data['avatar'] = $uploadPath;
+                        } else {
+                            $errors['avatar'] = 'Failed to upload avatar';
+                        }
+                    }
+                }
+                
+                if (empty($errors)) {
+                    if ($this->auth->updateProfile($data)) {
+                        $this->setFlash('success', 'Profile updated successfully');
+                    } else {
+                        $this->setFlash('error', 'Failed to update profile');
+                    }
+                } else {
+                    $this->setFlash('errors', $errors);
+                    $this->setFlash('old', $_POST);
+                }
+            } else {
+                $this->setFlash('errors', $errors);
+                $this->setFlash('old', $_POST);
+            }
+        }
+        
+        // Show profile form
+        $this->view('auth/profile', [
+            'title' => 'Profile',
+            'user' => $this->auth->getUser(),
+            'csrf_token' => $this->generateCsrfToken()
+        ]);
     }
 
-    private function markPasswordResetTokenAsUsed($token) {
-        $token = $this->clean($token);
-        $query = "UPDATE password_resets SET used = 1 WHERE token = '$token'";
-        return $this->query($query);
+    private function generateCsrfToken() {
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+
+    private function validateCsrfToken($token) {
+        return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
     }
 } 
