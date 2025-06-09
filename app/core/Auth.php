@@ -1,4 +1,10 @@
 <?php
+namespace App\Core;
+
+use App\Models\UserModel;
+use App\Models\RoleModel;
+use App\Models\ActivityLogModel;
+use App\Helpers\Functions;
 
 class Auth {
     private static $instance = null;
@@ -177,7 +183,7 @@ class Auth {
                 $this->activityLogModel->create([
                     'user_id' => $this->user['id'],
                     'action' => 'unauthorized_access',
-                    'description' => "Attempted to access resource requiring permission: $permission"
+                    'description' => "Attempted to access resource requiring permission: {$permission}"
                 ]);
             }
             
@@ -194,7 +200,7 @@ class Auth {
             $_SESSION['intended_url'] = $_SERVER['REQUEST_URI'];
             
             // Redirect to login page
-            header('Location: ' . url('auth/login'));
+            header('Location: ' . Functions::url('auth/login'));
             exit;
         }
     }
@@ -202,7 +208,7 @@ class Auth {
     public function requireGuest() {
         if ($this->isLoggedIn()) {
             // Redirect to dashboard
-            header('Location: ' . url('dashboard'));
+            header('Location: ' . Functions::url('dashboard'));
             exit;
         }
     }
@@ -249,43 +255,42 @@ class Auth {
             // Log activity
             $this->activityLogModel->create([
                 'user_id' => $this->user['id'],
-                'action' => 'update_profile',
+                'action' => 'profile_update',
                 'description' => 'User updated their profile'
             ]);
-            
-            // Refresh user data
-            $this->user = $this->userModel->getById($this->user['id']);
         }
         
         return $success;
     }
-    
+
     public function updateAvatar($avatar) {
         if (!$this->isLoggedIn()) {
             return false;
         }
-        
+
         $success = $this->userModel->updateAvatar($this->user['id'], $avatar);
-        
+
         if ($success) {
             // Log activity
             $this->activityLogModel->create([
                 'user_id' => $this->user['id'],
-                'action' => 'update_avatar',
+                'action' => 'avatar_update',
                 'description' => 'User updated their avatar'
             ]);
-            
-            // Refresh user data
-            $this->user = $this->userModel->getById($this->user['id']);
         }
-        
+
         return $success;
     }
-    
+
     public function register($data) {
-        // Check if email already exists
-        if ($this->userModel->getByEmail($data['email'])) {
-            return false;
+        // Hash password
+        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        
+        // Set default role
+        if (!isset($data['role_id'])) {
+            $roleModel = new RoleModel();
+            $defaultRole = $roleModel->getBySlug('user');
+            $data['role_id'] = $defaultRole['id'] ?? 2; // Default to author if 'user' role not found
         }
         
         $userId = $this->userModel->create($data);
@@ -295,106 +300,107 @@ class Auth {
             $this->activityLogModel->create([
                 'user_id' => $userId,
                 'action' => 'register',
-                'description' => 'New user registration'
+                'description' => 'New user registered'
             ]);
             
-            // Auto login if registration is successful
-            return $this->login($data['email'], $data['password']);
+            // Generate email verification token
+            $token = bin2hex(random_bytes(32));
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+1 day'));
+            $this->userModel->setVerificationToken($userId, $token, $expiresAt);
+
+            // Send verification email
+            // For now, let's just log the link
+            error_log("Email verification link for user {$userId}: " . Functions::url('auth/verify-email', ['token' => $token]));
+
+            return true;
         }
-        
         return false;
     }
-    
+
     public function forgotPassword($email) {
         $user = $this->userModel->getByEmail($email);
         
-        if (!$user) {
-            return false;
+        if ($user) {
+            // Generate reset token
+            $token = bin2hex(random_bytes(32));
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            
+            $this->userModel->setPasswordResetToken($user['id'], $token, $expiresAt);
+            
+            // Send reset email
+            // For now, let's just log the link
+            error_log("Password reset link for user {$user['id']}: " . Functions::url('auth/reset-password', ['token' => $token]));
+
+            return true;
         }
-        
-        // Generate reset token
-        $token = bin2hex(random_bytes(32));
-        $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
-        
-        // Store reset token in database
-        $this->userModel->setRememberToken($user['id'], $token, $expiresAt);
-        
-        // Send reset email
-        // TODO: Implement email sending
-        
-        // Log activity
-        $this->activityLogModel->create([
-            'user_id' => $user['id'],
-            'action' => 'forgot_password',
-            'description' => 'User requested password reset'
-        ]);
-        
-        return true;
+        return false;
     }
-    
+
     public function resetPassword($token, $newPassword) {
-        $user = $this->userModel->getByRememberToken($token);
+        $user = $this->userModel->getByPasswordResetToken($token);
         
         if (!$user) {
             return false;
         }
         
+        // Update password
         $success = $this->userModel->updatePassword($user['id'], $newPassword);
         
         if ($success) {
             // Clear reset token
-            $this->userModel->clearRememberToken($user['id']);
+            $this->userModel->clearPasswordResetToken($user['id']);
             
             // Log activity
             $this->activityLogModel->create([
                 'user_id' => $user['id'],
-                'action' => 'reset_password',
+                'action' => 'password_reset',
                 'description' => 'User reset their password'
             ]);
+            return true;
         }
-        
-        return $success;
+        return false;
     }
-    
+
     public function verifyEmail($token) {
-        $user = $this->userModel->getByRememberToken($token);
-        
+        $user = $this->userModel->getByVerificationToken($token);
+
         if (!$user) {
             return false;
         }
-        
-        $success = $this->userModel->update($user['id'], ['email_verified_at' => date('Y-m-d H:i:s')]);
-        
+
+        // Mark email as verified
+        $success = $this->userModel->markEmailAsVerified($user['id']);
+
         if ($success) {
             // Clear verification token
-            $this->userModel->clearRememberToken($user['id']);
+            $this->userModel->clearVerificationToken($user['id']);
             
             // Log activity
             $this->activityLogModel->create([
                 'user_id' => $user['id'],
-                'action' => 'verify_email',
-                'description' => 'User verified their email address'
+                'action' => 'email_verified',
+                'description' => 'User email verified'
             ]);
+            return true;
         }
-        
-        return $success;
+        return false;
     }
-    
+
     public function isEmailVerified() {
-        return $this->user && $this->user['email_verified_at'] !== null;
+        return $this->user ? $this->user['email_verified_at'] !== null : false;
     }
-    
+
     public function requireEmailVerification() {
         if ($this->isLoggedIn() && !$this->isEmailVerified()) {
-            // Redirect to email verification page
-            header('Location: ' . url('auth/verify-email'));
+            // Redirect to email verification notice page
+            header('Location: ' . Functions::url('auth/verify-email-notice'));
             exit;
         }
     }
-    
+
     public function getIntendedUrl() {
-        $url = $_SESSION['intended_url'] ?? url('dashboard');
+        $url = $_SESSION['intended_url'] ?? Functions::url('dashboard');
         unset($_SESSION['intended_url']);
         return $url;
     }
-} 
+}

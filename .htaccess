@@ -13,14 +13,14 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
 # RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
 
-# Redirect index.php to root
-RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+index\.php [NC]
-RewriteRule ^ / [R=301,L]
+# Redirect index.php to root (this rule might need to be adjusted based on your desired behavior)
+# RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+index\.php [NC]
+# RewriteRule ^ / [R=301,L]
 
-# Handle front controller
-RewriteCond %{REQUEST_FILENAME} !-d
+# Handle front controller - Modified to point to public/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^ index.php [L]
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.php/$1 [L,QSA]
 
 # Prevent directory listing
 Options -Indexes

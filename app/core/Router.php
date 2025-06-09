@@ -5,6 +5,14 @@ class Router {
     private $routes = [];
     private $params = [];
     private $notFoundCallback;
+    private $baseUrl;
+
+    public function __construct(array $config) {
+        // Get the base URL from the global config
+        $this->baseUrl = parse_url($config['url'], PHP_URL_PATH);
+        $this->baseUrl = rtrim($this->baseUrl, '/'); // Ensure no trailing slash
+        error_log("Router Base URL: " . $this->baseUrl);
+    }
 
     /**
      * Add route
@@ -22,7 +30,7 @@ class Router {
             'controller' => $controller,
             'action' => $action
         ];
-        
+        error_log("Route added: " . strtoupper($method) . " " . $route . " -> " . $controller . "@" . $action);
         return $this;
     }
 
@@ -87,9 +95,20 @@ class Router {
      * Match route
      */
     public function match($url, $method) {
+        error_log("Matching URL: " . $url . " with method: " . $method);
         // Remove query string
         $url = parse_url($url, PHP_URL_PATH);
+        error_log("URL after parse_url: " . $url);
         
+        // Remove base URL prefix if present
+        if (!empty($this->baseUrl) && strpos($url, $this->baseUrl) === 0) {
+            $originalUrl = $url;
+            $url = substr($url, strlen($this->baseUrl));
+            error_log("URL after removing base URL ({$this->baseUrl}): " . $url . " (Original: " . $originalUrl . ")");
+        } else {
+            error_log("Base URL ({$this->baseUrl}) not found at start of URL: " . $url);
+        }
+
         // Remove trailing slash
         $url = rtrim($url, '/');
         
@@ -97,15 +116,18 @@ class Router {
         if (empty($url)) {
             $url = '/';
         }
-        
+        error_log("Final URL for matching: " . $url);
+
         foreach ($this->routes as $route) {
             // Check method
             if ($route['method'] !== 'ANY' && $route['method'] !== $method) {
+                error_log("Skipping route (method mismatch): " . $route['method'] . " vs " . $method);
                 continue;
             }
             
             // Check pattern
             if (preg_match($route['pattern'], $url, $matches)) {
+                error_log("Route matched: " . $route['pattern'] . " for URL: " . $url);
                 // Get named parameters
                 foreach ($matches as $key => $value) {
                     if (is_string($key)) {
@@ -119,8 +141,10 @@ class Router {
                     'params' => $this->params
                 ];
             }
+            error_log("Route pattern did not match: " . $route['pattern'] . " against URL: " . $url);
         }
         
+        error_log("No route matched for URL: " . $url);
         return false;
     }
 
@@ -130,22 +154,39 @@ class Router {
     public function dispatch() {
         $url = $_SERVER['REQUEST_URI'];
         $method = $_SERVER['REQUEST_METHOD'];
+        error_log("Dispatching request for URL: " . $url . " and method: " . $method);
         
         // Handle PUT, DELETE, PATCH methods
         if ($method === 'POST' && isset($_POST['_method'])) {
             $method = strtoupper($_POST['_method']);
+            error_log("Method changed to: " . $method . " via _method POST parameter.");
         }
         
         $route = $this->match($url, $method);
         
         if ($route) {
+            error_log("Route found: " . $route['controller'] . "@" . $route['action']);
             $controller = $route['controller'];
             $action = $route['action'];
             $params = $route['params'];
             
+            // Parse controller@action string
+            if (strpos($controller, '@') !== false) {
+                list($controllerClass, $action) = explode('@', $controller);
+                $controller = $controllerClass;
+            }
+            error_log("Controller Class: " . $controller . ", Action: " . $action);
+            
             // Check if controller exists
             if (!class_exists($controller)) {
-                throw new \Exception("Controller not found: {$controller}");
+                // Try with App\Controllers namespace
+                $fullControllerClass = 'App\\Controllers\\' . $controller;
+                if (!class_exists($fullControllerClass)) {
+                    error_log("Controller not found: " . $controller . " or " . $fullControllerClass);
+                    throw new \Exception("Controller not found: {$controller}");
+                }
+                $controller = $fullControllerClass;
+                error_log("Using full Controller Class: " . $controller);
             }
             
             // Create controller instance
@@ -153,18 +194,22 @@ class Router {
             
             // Check if action exists
             if ($action && !method_exists($controller, $action)) {
+                error_log("Action not found: " . $action . " in controller: " . get_class($controller));
                 throw new \Exception("Action not found: {$action}");
             }
             
             // Call action
             if ($action) {
+                error_log("Calling controller action: " . get_class($controller) . "->" . $action . " with params: " . json_encode($params));
                 return call_user_func_array([$controller, $action], $params);
             } else {
+                error_log("Calling controller as callable: " . get_class($controller));
                 return $controller();
             }
         }
         
         // Handle 404
+        error_log("No route matched. Handling 404.");
         if ($this->notFoundCallback) {
             return call_user_func($this->notFoundCallback);
         }
@@ -205,33 +250,18 @@ class Router {
      * Generate URL
      */
     public function url($route, $params = []) {
-        foreach ($this->routes as $r) {
-            if ($r['controller'] === $route[0] && $r['action'] === $route[1]) {
-                $url = $r['pattern'];
-                
-                // Replace named parameters
-                foreach ($params as $key => $value) {
-                    $url = str_replace('{' . $key . '}', $value, $url);
-                }
-                
-                // Remove regex pattern
-                $url = preg_replace('/\([^)]+\)/', '', $url);
-                $url = str_replace('\/', '/', $url);
-                $url = rtrim($url, '/');
-                
-                return $url;
-            }
+        $url = $route;
+        foreach ($params as $key => $value) {
+            $url = str_replace('{' . $key . '}', $value, $url);
         }
-        
-        throw new \Exception("Route not found: {$route[0]}::{$route[1]}");
+        return $this->baseUrl . $url;
     }
 
     /**
      * Redirect to route
      */
     public function redirect($route, $params = []) {
-        $url = $this->url($route, $params);
-        header("Location: {$url}");
+        header('Location: ' . $this->url($route, $params));
         exit;
     }
 
@@ -239,7 +269,7 @@ class Router {
      * Redirect to URL
      */
     public function redirectTo($url) {
-        header("Location: {$url}");
+        header('Location: ' . $url);
         exit;
     }
 
@@ -247,17 +277,19 @@ class Router {
      * Redirect back
      */
     public function back() {
-        $url = $_SERVER['HTTP_REFERER'] ?? '/';
-        header("Location: {$url}");
+        if (isset($_SERVER['HTTP_REFERER'])) {
+            header('Location: ' . $_SERVER['HTTP_REFERER']);
+        } else {
+            header('Location: ' . $this->baseUrl . '/'); // Fallback to homepage
+        }
         exit;
     }
 
     /**
-     * Refresh current page
+     * Refresh page
      */
     public function refresh() {
-        $url = $_SERVER['REQUEST_URI'];
-        header("Location: {$url}");
+        header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
 } 

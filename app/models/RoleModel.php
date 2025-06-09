@@ -1,4 +1,5 @@
 <?php
+namespace App\Models;
 
 class RoleModel extends BaseModel {
     public function __construct() {

@@ -1,4 +1,5 @@
 <?php
+namespace App\Models;
 
 class ActivityLogModel extends BaseModel {
     public function __construct() {

@@ -1,9 +1,9 @@
 <?php
 namespace App\Models;
 
-use App\Core\Model;
+use App\Core\BaseModel;
 
-class UserModel extends Model {
+class UserModel extends BaseModel {
     public function __construct() {
         parent::__construct();
     }
@@ -27,162 +27,6 @@ class UserModel extends Model {
         $query = "SELECT * FROM users WHERE remember_token = '$token'";
         $result = $this->query($query);
         return $result->fetch_assoc();
-    }
-
-    public function create($data) {
-        $username = $this->clean($data['username']);
-        $email = $this->clean($data['email']);
-        $password = password_hash($data['password'], PASSWORD_DEFAULT);
-        $role = $this->clean($data['role']);
-
-        $query = "INSERT INTO users (username, email, password, role) 
-                 VALUES ('$username', '$email', '$password', '$role')";
-        
-        if ($this->query($query)) {
-            return $this->getLastInsertId();
-        }
-        return false;
-    }
-
-    public function update($id, $data) {
-        $id = (int)$id;
-        $updates = [];
-        $allowed_fields = ['username', 'email', 'role', 'profile_picture', 'remember_token'];
-
-        foreach ($data as $field => $value) {
-            if (in_array($field, $allowed_fields)) {
-                $value = $this->clean($value);
-                $updates[] = "$field = '$value'";
-            }
-        }
-
-        if (!empty($updates)) {
-            $query = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = $id";
-            return $this->query($query);
-        }
-
-        return false;
-    }
-
-    public function updatePassword($id, $password) {
-        $id = (int)$id;
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $query = "UPDATE users SET password = '$hashed_password' WHERE id = $id";
-        return $this->query($query);
-    }
-
-    public function updateLastLogin($id) {
-        $id = (int)$id;
-        $query = "UPDATE users SET last_login = NOW() WHERE id = $id";
-        return $this->query($query);
-    }
-
-    public function verifyPassword($id, $password) {
-        $id = (int)$id;
-        $query = "SELECT password FROM users WHERE id = $id";
-        $result = $this->query($query);
-        $user = $result->fetch_assoc();
-        
-        return $user && password_verify($password, $user['password']);
-    }
-
-    public function getAll($page = 1, $filters = []) {
-        $perPage = 10;
-        $offset = ($page - 1) * $perPage;
-        
-        $where = ['1=1'];
-        $params = [];
-        
-        // Filter by role
-        if (!empty($filters['role'])) {
-            $where[] = 'u.role_id = ?';
-            $params[] = $filters['role'];
-        }
-        
-        // Filter by status
-        if (isset($filters['status'])) {
-            $where[] = 'u.status = ?';
-            $params[] = $filters['status'];
-        }
-        
-        // Search by name or email
-        if (!empty($filters['search'])) {
-            $where[] = '(u.name LIKE ? OR u.email LIKE ?)';
-            $params[] = '%' . $filters['search'] . '%';
-            $params[] = '%' . $filters['search'] . '%';
-        }
-        
-        $whereClause = implode(' AND ', $where);
-        
-        // Get total records
-        $sql = "SELECT COUNT(*) as total 
-                FROM users u 
-                WHERE $whereClause";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $total = $stmt->fetch()['total'];
-        
-        // Get users with role info
-        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug,
-                       (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as post_count,
-                       (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comment_count
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE $whereClause
-                ORDER BY u.created_at DESC
-                LIMIT ? OFFSET ?";
-        
-        $params[] = $perPage;
-        $params[] = $offset;
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        $users = $stmt->fetchAll();
-        
-        return [
-            'users' => $users,
-            'pagination' => [
-                'total' => $total,
-                'per_page' => $perPage,
-                'current_page' => $page,
-                'last_page' => ceil($total / $perPage)
-            ]
-        ];
-    }
-
-    public function getById($id) {
-        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug,
-                       (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as post_count,
-                       (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comment_count
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE u.id = ?";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$id]);
-        return $stmt->fetch();
-    }
-
-    public function getByEmail($email) {
-        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE u.email = ?";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$email]);
-        return $stmt->fetch();
-    }
-
-    public function getByRememberToken($token) {
-        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE u.remember_token = ? AND u.remember_token_expires_at > NOW()";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$token]);
-        return $stmt->fetch();
     }
 
     public function create($data) {
@@ -371,12 +215,12 @@ class UserModel extends Model {
         $stmt->execute([$keyword, $keyword]);
         $total = $stmt->fetch()['total'];
         
-        // Get users
+        // Get users with role info
         $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug
                 FROM users u
                 LEFT JOIN roles r ON u.role_id = r.id
                 WHERE u.name LIKE ? OR u.email LIKE ?
-                ORDER BY u.name ASC
+                ORDER BY u.created_at DESC
                 LIMIT ? OFFSET ?";
         
         $stmt = $this->db->prepare($sql);
@@ -392,5 +236,103 @@ class UserModel extends Model {
                 'last_page' => ceil($total / $perPage)
             ]
         ];
+    }
+
+    public function getAll($page = 1, $filters = []) {
+        $perPage = 10;
+        $offset = ($page - 1) * $perPage;
+        
+        $where = ['1=1'];
+        $params = [];
+        
+        // Filter by role
+        if (!empty($filters['role'])) {
+            $where[] = 'u.role_id = ?';
+            $params[] = $filters['role'];
+        }
+        
+        // Filter by status
+        if (isset($filters['status'])) {
+            $where[] = 'u.status = ?';
+            $params[] = $filters['status'];
+        }
+        
+        // Search by name or email
+        if (!empty($filters['search'])) {
+            $where[] = '(u.name LIKE ? OR u.email LIKE ?)';
+            $params[] = '%' . $filters['search'] . '%';
+            $params[] = '%' . $filters['search'] . '%';
+        }
+        
+        $whereClause = implode(' AND ', $where);
+        
+        // Get total records
+        $sql = "SELECT COUNT(*) as total 
+                FROM users u 
+                WHERE $whereClause";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $total = $stmt->fetch()['total'];
+        
+        // Get users with role info
+        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug,
+                       (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as post_count,
+                       (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comment_count
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE $whereClause
+                ORDER BY u.created_at DESC
+                LIMIT ? OFFSET ?";
+        
+        $params[] = $perPage;
+        $params[] = $offset;
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $users = $stmt->fetchAll();
+        
+        return [
+            'users' => $users,
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => ceil($total / $perPage)
+            ]
+        ];
+    }
+
+    public function getById($id) {
+        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug,
+                       (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as post_count,
+                       (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comment_count
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.id = ?";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$id]);
+        return $stmt->fetch();
+    }
+
+    public function getByEmail($email) {
+        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.email = ?";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$email]);
+        return $stmt->fetch();
+    }
+
+    public function getByRememberToken($token) {
+        $sql = "SELECT u.*, r.name as role_name, r.slug as role_slug
+                FROM users u
+                LEFT JOIN roles r ON u.remember_token = ? AND u.remember_token_expires_at > NOW()";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$token]);
+        return $stmt->fetch();
     }
 } 

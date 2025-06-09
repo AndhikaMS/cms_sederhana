@@ -1,6 +1,11 @@
 <?php
+
+// Load Composer's autoloader
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
 // Start session
 session_start();
+session_regenerate_id(true);
 
 // Load environment variables
 $env_file = dirname(__DIR__) . '/.env';
@@ -25,10 +30,17 @@ if (file_exists($env_file)) {
 }
 
 // Load configuration
-$config = require_once __DIR__ . '/config/app.php';
+$config_path = __DIR__ . '/config/app.php';
+$config = []; // Initialize as empty array
+if (file_exists($config_path)) {
+    $loaded_config = require_once $config_path;
+    if (is_array($loaded_config)) {
+        $config = $loaded_config;
+    }
+}
 
 // Set error reporting
-if ($config['debug']) {
+if (($config['debug'] ?? false)) {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
 } else {
@@ -37,35 +49,21 @@ if ($config['debug']) {
 }
 
 // Set timezone
-date_default_timezone_set($config['timezone']);
+date_default_timezone_set($config['timezone'] ?? 'UTC');
 
 // Set locale
-setlocale(LC_ALL, $config['locale'] . '.UTF-8');
-
-// Register autoloader
-spl_autoload_register(function ($class) {
-    // Convert namespace to full file path
-    $file = dirname(__DIR__) . '/' . str_replace('\\', '/', $class) . '.php';
-    
-    // If the file exists, require it
-    if (file_exists($file)) {
-        require_once $file;
-        return true;
-    }
-    
-    return false;
-});
+setlocale(LC_ALL, ($config['locale'] ?? 'en') . '.UTF-8');
 
 // Create required directories
 $directories = [
-    $config['session']['files'],
-    $config['upload']['path'],
-    $config['cache']['path'],
-    $config['log']['path'],
+    $config['session']['files'] ?? null,
+    $config['upload']['path'] ?? null,
+    $config['cache']['path'] ?? null,
+    $config['log']['path'] ?? null,
 ];
 
 foreach ($directories as $directory) {
-    if (!file_exists($directory)) {
+    if ($directory && !file_exists($directory)) {
         mkdir($directory, 0755, true);
     }
 }
@@ -74,7 +72,7 @@ foreach ($directories as $directory) {
 try {
     $db = \App\Core\Database::getInstance();
 } catch (\Exception $e) {
-    if ($config['debug']) {
+    if (($config['debug'] ?? false)) {
         die("Database connection failed: " . $e->getMessage());
     } else {
         die("Database connection failed. Please try again later.");
@@ -82,16 +80,20 @@ try {
 }
 
 // Initialize router
-$router = new \App\Core\Router();
+$router = new \App\Core\Router($config);
 
 // Set 404 handler
-$router->notFound(function() {
+$router->notFound(function() use ($config) {
     header("HTTP/1.0 404 Not Found");
-    echo "404 Not Found";
+    if (($config['debug'] ?? false)) {
+        echo "404 Not Found";
+    } else {
+        echo "An error occurred. Please try again later."; // Generic message for production
+    }
 });
 
 // Load routes
 require_once __DIR__ . '/routes.php';
 
-// Return router instance
-return $router; 
+// Return router instance and config
+return ['router' => $router, 'config' => $config]; 

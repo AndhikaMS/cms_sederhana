@@ -2,14 +2,17 @@
 namespace App\Core;
 
 use App\Helpers\Functions;
+use App\Core\Auth;
 
 abstract class Controller {
     protected $db;
     protected $view;
+    protected $auth;
 
     public function __construct() {
         $this->db = Database::getInstance();
         $this->view = new View();
+        $this->auth = Auth::getInstance();
     }
 
     /**

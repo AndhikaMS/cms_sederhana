@@ -12,6 +12,7 @@ $router->post('/reset-password/{token}', 'App\Controllers\AuthController@resetPa
 
 // Dashboard routes
 $router->get('/', 'App\Controllers\DashboardController@index');
+$router->get('/dashboard', 'App\\Controllers\\DashboardController@index'); 
 
 // Post routes
 $router->get('/posts', 'App\Controllers\PostController@index');

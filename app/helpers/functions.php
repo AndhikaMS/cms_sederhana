@@ -183,6 +183,22 @@ class Functions {
     }
 
     /**
+     * Generate a URL for a given route.
+     *
+     * @param string $route The route name.
+     * @param array $params Optional route parameters.
+     * @return string The generated URL.
+     */
+    public static function url($route, $params = []) {
+        global $router; // Access the global router instance
+        if ($router) {
+            return $router->url($route, $params);
+        }
+        // Fallback or error handling if router is not available
+        return '/'; 
+    }
+
+    /**
      * Validate email
      */
     public static function validateEmail($email) {

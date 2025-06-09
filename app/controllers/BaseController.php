@@ -1,36 +1,22 @@
 <?php
 namespace App\Controllers;
 
-class BaseController {
+use App\Core\Controller;
+use App\Core\View; // Ensure this line is present
+
+class BaseController extends Controller {
     protected $db;
-    protected $view;
+    protected $view; // Declare the $view property
 
     public function __construct() {
+        parent::__construct();
         $this->db = \App\Core\Database::getInstance();
+        $this->view = new View(); // Initialize the View class
     }
 
     protected function view($view, $data = []) {
-        // Extract data to make variables available in view
-        extract($data);
-        
-        // Start output buffering
-        ob_start();
-        
-        // Include the view file
-        $viewPath = __DIR__ . '/../views/' . $view . '.php';
-        if (file_exists($viewPath)) {
-            require_once $viewPath;
-        } else {
-            throw new \Exception("View {$view} not found");
-        }
-        
-        // Get the contents of the buffer
-        $content = ob_get_clean();
-        
-        // Include the layout
-        require_once __DIR__ . '/../views/layouts/header.php';
-        echo $content;
-        require_once __DIR__ . '/../views/layouts/footer.php';
+        // Delegate rendering to the View class, which handles layouts
+        $this->view->render($view, $data);
     }
 
     protected function redirect($url) {
@@ -65,4 +51,4 @@ class BaseController {
         }
         return isset($_GET[$key]) ? $_GET[$key] : null;
     }
-} 
+}

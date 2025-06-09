@@ -9,7 +9,7 @@ class View {
         // Extract data to make variables available in view
         extract($data);
         
-        // Start output buffering
+        // Start output buffering for the view content
         ob_start();
         
         // Include view file
@@ -20,10 +20,10 @@ class View {
             throw new \Exception("View file not found: {$view_file}");
         }
         
-        // Get contents and clean buffer
+        // Get contents of the view and clean buffer
         $content = ob_get_clean();
         
-        // Include layout if exists
+        // Include the main layout file, passing the $content variable
         $layout_file = $this->getLayoutFile();
         if (file_exists($layout_file)) {
             require $layout_file;
@@ -53,6 +53,8 @@ class View {
      * Get layout file path
      */
     protected function getLayoutFile() {
+        // Default layout file. If you have different layouts (e.g., admin, public),
+        // you might want to extend this logic (e.g., pass layout name to render method)
         return dirname(__DIR__) . '/views/layouts/main.php';
     }
 
@@ -198,17 +200,11 @@ class View {
         $html = '<nav aria-label="breadcrumb">';
         $html .= '<ol class="breadcrumb">';
         
-        foreach ($items as $i => $item) {
-            $is_last = $i === count($items) - 1;
-            
-            if ($is_last) {
-                $html .= '<li class="breadcrumb-item active" aria-current="page">';
-                $html .= $item['label'];
-                $html .= '</li>';
+        foreach ($items as $label => $url) {
+            if ($url) {
+                $html .= '<li class="breadcrumb-item"><a href="' . $url . '">' . $this->escape($label) . '</a></li>';
             } else {
-                $html .= '<li class="breadcrumb-item">';
-                $html .= '<a href="' . $item['url'] . '">' . $item['label'] . '</a>';
-                $html .= '</li>';
+                $html .= '<li class="breadcrumb-item active" aria-current="page">' . $this->escape($label) . '</li>';
             }
         }
         
@@ -219,92 +215,98 @@ class View {
     }
 
     /**
-     * Generate alert
+     * Display a simple alert message.
+     * @param string $message The message to display.
+     * @param string $type The type of alert (e.g., 'success', 'danger', 'warning', 'info').
      */
     public function alert($message, $type = 'info') {
-        $html = '<div class="alert alert-' . $type . ' alert-dismissible fade show" role="alert">';
-        $html .= $message;
-        $html .= '<button type="button" class="close" data-dismiss="alert" aria-label="Close">';
-        $html .= '<span aria-hidden="true">&times;</span>';
-        $html .= '</button>';
-        $html .= '</div>';
-        
-        return $html;
+        echo '<div class="alert alert-' . $this->escape($type) . ' alert-dismissible fade show" role="alert">';
+        echo $this->escape($message);
+        echo '<button type="button" class="close" data-dismiss="alert" aria-label="Close">';
+        echo '<span aria-hidden="true">&times;</span>';
+        echo '</button>';
+        echo '</div>';
     }
 
     /**
-     * Generate badge
+     * Generate a Bootstrap badge.
+     * @param string $text The text inside the badge.
+     * @param string $type The badge type (e.g., 'primary', 'secondary', 'success').
+     * @return string The HTML for the badge.
      */
     public function badge($text, $type = 'secondary') {
-        return '<span class="badge badge-' . $type . '">' . $text . '</span>';
+        return '<span class="badge badge-' . $this->escape($type) . '">' . $this->escape($text) . '</span>';
     }
 
     /**
-     * Generate button
+     * Generate a Bootstrap button.
+     * @param string $text The button text.
+     * @param string|null $url The URL for the button (if it's a link).
+     * @param string $type The button type (e.g., 'primary', 'secondary', 'danger').
+     * @param string|null $size The button size (e.g., 'sm', 'lg').
+     * @param string|null $icon Font Awesome icon class (e.g., 'fas fa-plus').
+     * @return string The HTML for the button.
      */
     public function button($text, $url = null, $type = 'primary', $size = null, $icon = null) {
-        $classes = ['btn', 'btn-' . $type];
-        
+        $class = "btn btn-{$type}";
         if ($size) {
-            $classes[] = 'btn-' . $size;
+            $class .= " btn-{$size}";
         }
         
-        $html = '<a href="' . ($url ?: '#') . '" class="' . implode(' ', $classes) . '">';
+        $iconHtml = $icon ? "<i class=\"{$this->escape($icon)}\"></i> " : '';
         
-        if ($icon) {
-            $html .= '<i class="' . $icon . '"></i> ';
+        if ($url) {
+            return "<a href=\"{$this->escape($url)}\" class=\"{$this->escape($class)}\">{$iconHtml}{$this->escape($text)}</a>";
+        } else {
+            return "<button type=\"submit\" class=\"{$this->escape($class)}\">{$iconHtml}{$this->escape($text)}</button>";
         }
-        
-        $html .= $text;
-        $html .= '</a>';
-        
-        return $html;
     }
 
     /**
-     * Generate icon
+     * Generate a Font Awesome icon.
+     * @param string $name The icon name (e.g., 'fas fa-home').
+     * @param string|null $class Additional CSS classes.
+     * @return string The HTML for the icon.
      */
     public function icon($name, $class = null) {
-        $classes = ['fas', 'fa-' . $name];
-        
+        $fullClass = $this->escape($name);
         if ($class) {
-            $classes[] = $class;
+            $fullClass .= ' ' . $this->escape($class);
         }
-        
-        return '<i class="' . implode(' ', $classes) . '"></i>';
+        return '<i class="' . $fullClass . '"></i>';
     }
 
     /**
-     * Generate label
+     * Generate a Bootstrap label (similar to badge).
+     * @param string $text The label text.
+     * @param string $type The label type (e.g., 'default', 'primary').
+     * @return string The HTML for the label.
      */
     public function label($text, $type = 'default') {
-        return '<span class="label label-' . $type . '">' . $text . '</span>';
+        // Bootstrap 4 uses badges, so this might be an old helper.
+        // For compatibility, we'll map it to badges.
+        return $this->badge($text, $type);
     }
 
     /**
-     * Generate progress bar
+     * Generate a Bootstrap progress bar.
+     * @param int $percent The percentage of progress.
+     * @param string $type The progress bar type (e.g., 'primary', 'success').
+     * @param bool $striped Whether the progress bar is striped.
+     * @param bool $animated Whether the progress bar is animated.
+     * @return string The HTML for the progress bar.
      */
     public function progress($percent, $type = 'primary', $striped = false, $animated = false) {
-        $classes = ['progress-bar'];
-        
-        if ($type) {
-            $classes[] = 'bg-' . $type;
-        }
-        
+        $class = "progress-bar bg-{$type}";
         if ($striped) {
-            $classes[] = 'progress-bar-striped';
+            $class .= " progress-bar-striped";
         }
-        
         if ($animated) {
-            $classes[] = 'progress-bar-animated';
+            $class .= " progress-bar-animated";
         }
         
-        $html = '<div class="progress">';
-        $html .= '<div class="' . implode(' ', $classes) . '" role="progressbar" style="width: ' . $percent . '%" aria-valuenow="' . $percent . '" aria-valuemin="0" aria-valuemax="100">';
-        $html .= $percent . '%';
-        $html .= '</div>';
-        $html .= '</div>';
-        
-        return $html;
+        return '<div class="progress" style="height: 20px;">' .
+               '<div class="' . $this->escape($class) . '" role="progressbar" style="width: ' . $percent . '%" aria-valuenow="' . $percent . '" aria-valuemin="0" aria-valuemax="100"></div>' .
+               '</div>';
     }
-} 
+}
