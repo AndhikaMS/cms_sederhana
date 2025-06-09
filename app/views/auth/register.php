@@ -14,7 +14,7 @@
 <body class="hold-transition register-page">
 <div class="register-box">
     <div class="register-logo">
-        <a href="/"><b>CMS</b> Sederhana</a>
+        <a href="<?php echo App\Helpers\Functions::url('/'); ?>"><b>CMS</b> Sederhana</a>
     </div>
     <!-- /.register-logo -->
     <div class="card">
@@ -29,7 +29,7 @@
                 <div class="alert alert-success"><?php echo $this->getFlash('success'); ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="/register">
+            <form method="POST" action="<?php echo App\Helpers\Functions::url('register'); ?>">
                 <div class="input-group mb-3">
                     <input type="text" class="form-control" name="username" placeholder="Username" required>
                     <div class="input-group-append">
@@ -86,11 +86,11 @@
             </form>
 
             <div class="text-center mt-3">
-                <a href="/" class="btn btn-outline-secondary">Kembali ke Home</a>
+                <a href="<?php echo App\Helpers\Functions::url('/'); ?>" class="btn btn-outline-secondary">Kembali ke Home</a>
             </div>
 
             <p class="mt-3 mb-1">
-                <a href="/login">I already have an account</a>
+                <a href="<?php echo App\Helpers\Functions::url('login'); ?>">I already have an account</a>
             </p>
         </div>
     </div>

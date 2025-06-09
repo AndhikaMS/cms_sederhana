@@ -123,7 +123,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 </span>
             </li>
             <li class="nav-item">
-                <a href="login.php" class="btn btn-outline-primary">Login</a>
+                <a href="/cms_sederhana/login" class="btn btn-outline-primary">Login</a>
             </li>
             <?php endif; ?>
         </ul>

@@ -14,7 +14,7 @@
 <body class="hold-transition login-page">
 <div class="login-box">
     <div class="login-logo">
-        <a href="<?php echo App\Helpers\Functions::url('/'); ?>"><b>CMS</b> Sederhana</a>
+        <a href="/"><b>CMS</b> Sederhana</a>
     </div>
     <!-- /.login-logo -->
     <div class="card">
@@ -29,7 +29,7 @@
                 <div class="alert alert-success"><?php echo $_SESSION['flash']['success']; ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="<?php echo App\Helpers\Functions::url('login'); ?>">
+            <form method="POST" action="/login">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <div class="input-group mb-3">
                     <input type="email" class="form-control" name="email" placeholder="Email" required>
@@ -63,14 +63,14 @@
             </form>
 
             <div class="text-center mt-3">
-                <a href="<?php echo App\Helpers\Functions::url('/'); ?>" class="btn btn-outline-secondary">Kembali ke Home</a>
+                <a href="/" class="btn btn-outline-secondary">Kembali ke Home</a>
             </div>
 
             <p class="mt-3 mb-1">
-                <a href="<?php echo App\Helpers\Functions::url('forgot-password'); ?>">I forgot my password</a>
+                <a href="/forgot-password">I forgot my password</a>
             </p>
             <p class="mb-0">
-                <a href="<?php echo App\Helpers\Functions::url('register'); ?>" class="text-center">Register a new account</a>
+                <a href="/register" class="text-center">Register a new account</a>
             </p>
         </div>
     </div>

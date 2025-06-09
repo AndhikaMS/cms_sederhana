@@ -97,8 +97,9 @@ abstract class Controller {
     /**
      * Redirect to URL
      */
-    protected function redirect($url) {
-        Functions::redirect($url);
+    protected function redirect($route, $params = []) {
+        header('Location: ' . Functions::url($route, $params));
+        exit;
     }
 
     /**

@@ -34,6 +34,22 @@ class View {
     }
 
     /**
+     * Render view without layout
+     */
+    public function renderWithoutLayout($view, $data = []) {
+        // Extract data to make variables available in view
+        extract($data);
+        
+        // Include view file directly
+        $view_file = $this->getViewFile($view);
+        if (file_exists($view_file)) {
+            require $view_file;
+        } else {
+            throw new \Exception("View file not found: {$view_file}");
+        }
+    }
+
+    /**
      * Get view file path
      */
     protected function getViewFile($view) {

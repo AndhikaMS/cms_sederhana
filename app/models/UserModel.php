@@ -335,4 +335,55 @@ class UserModel extends BaseModel {
         $stmt->execute([$token]);
         return $stmt->fetch();
     }
+
+    /**
+     * Get all users with post statistics
+     */
+    public function getAllUsersWithStats()
+    {
+        $query = "SELECT u.*, 
+                  (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as total_posts,
+                  (SELECT COUNT(*) FROM posts WHERE user_id = u.id AND status = 'published') as published_posts
+                  FROM users u 
+                  ORDER BY u.created_at DESC";
+        
+        $result = $this->db->query($query);
+        
+        if ($result) {
+            return $result->fetch_all(MYSQLI_ASSOC);
+        }
+        
+        return [];
+    }
+
+    /**
+     * Delete user (for admin use)
+     */
+    public function deleteUser($userId)
+    {
+        // First delete all posts by this user
+        $query = "DELETE FROM posts WHERE user_id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->bind_param('i', $userId);
+        $stmt->execute();
+        
+        // Then delete the user
+        $query = "DELETE FROM users WHERE id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->bind_param('i', $userId);
+        
+        return $stmt->execute();
+    }
+
+    /**
+     * Update user role (for admin use)
+     */
+    public function updateUserRole($userId, $role)
+    {
+        $query = "UPDATE users SET role = ? WHERE id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->bind_param('si', $role, $userId);
+        
+        return $stmt->execute();
+    }
 } 

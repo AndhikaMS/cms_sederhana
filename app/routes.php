@@ -44,12 +44,15 @@ $router->post('/users/{id}', 'App\Controllers\UserController@update');
 $router->post('/users/{id}/delete', 'App\Controllers\UserController@delete');
 $router->post('/users/{id}/activate', 'App\Controllers\UserController@activate');
 $router->post('/users/{id}/deactivate', 'App\Controllers\UserController@deactivate');
+$router->post('/users/change-role', 'App\Controllers\UserController@changeRole');
+$router->get('/users/invite-codes', 'App\Controllers\UserController@inviteCodes');
+$router->post('/users/generate-invite-code', 'App\Controllers\UserController@generateInviteCode');
+$router->post('/users/delete-invite-code/{id}', 'App\Controllers\UserController@deleteInviteCode');
 
 // Profile routes
 $router->get('/profile', 'App\Controllers\ProfileController@index');
-$router->post('/profile', 'App\Controllers\ProfileController@update');
-$router->get('/profile/password', 'App\Controllers\ProfileController@password');
-$router->post('/profile/password', 'App\Controllers\ProfileController@updatePassword');
+$router->post('/profile/update', 'App\Controllers\ProfileController@update');
+$router->post('/profile/change-password', 'App\Controllers\ProfileController@changePassword');
 
 // Invite code routes
 $router->get('/invite-codes', 'App\Controllers\InviteCodeController@index');
@@ -74,4 +77,7 @@ $router->get('/api/users/{id}', 'App\Controllers\Api\UserController@show');
 // File upload routes
 $router->post('/upload/image', 'App\Controllers\UploadController@image');
 $router->post('/upload/file', 'App\Controllers\UploadController@file');
-$router->post('/upload/delete', 'App\Controllers\UploadController@delete'); 
+$router->post('/upload/delete', 'App\Controllers\UploadController@delete');
+
+// Search routes
+$router->get('/search', 'App\Controllers\SearchController@index'); 

@@ -177,6 +177,7 @@ class Auth {
     }
     
     public function requirePermission($permission) {
+        global $router;
         if (!$this->hasPermission($permission)) {
             // Log unauthorized access attempt
             if ($this->isLoggedIn()) {
@@ -188,27 +189,40 @@ class Auth {
             }
             
             // Redirect to error page or show error message
-            header('HTTP/1.1 403 Forbidden');
-            include 'app/views/errors/403.php';
+            // We'll redirect to a 403 route if defined, otherwise a generic error.
+            $router->redirectTo(Functions::url('403')); // Assuming a '403' route exists
             exit;
         }
     }
     
     public function requireLogin() {
+        global $router;
         if (!$this->isLoggedIn()) {
             // Store intended URL for redirect after login
-            $_SESSION['intended_url'] = $_SERVER['REQUEST_URI'];
-            
-            // Redirect to login page
-            header('Location: ' . Functions::url('auth/login'));
+            // We want to store the URL relative to the base_url, so the router can rebuild it correctly.
+            // $_SERVER['REQUEST_URI'] can contain the base_url, e.g., /cms_sederhana/login
+            // We need to strip the base_url from it before storing.
+            $request_uri_stripped = $_SERVER['REQUEST_URI'];
+            $baseUrlPath = parse_url(config('app.url'), PHP_URL_PATH);
+            if (!empty($baseUrlPath) && strpos($request_uri_stripped, $baseUrlPath) === 0) {
+                $request_uri_stripped = substr($request_uri_stripped, strlen($baseUrlPath));
+            }
+            // Ensure leading slash for routes
+            $request_uri_stripped = '/' . ltrim($request_uri_stripped, '/');
+
+            $_SESSION['intended_url'] = $request_uri_stripped;
+
+            // Redirect to login page using router's redirectTo method
+            $router->redirectTo(Functions::url('auth/login'));
             exit;
         }
     }
     
     public function requireGuest() {
+        global $router;
         if ($this->isLoggedIn()) {
-            // Redirect to dashboard
-            header('Location: ' . Functions::url('dashboard'));
+            // Redirect to dashboard using router's redirectTo method
+            $router->redirectTo(Functions::url('dashboard'));
             exit;
         }
     }
@@ -391,9 +405,10 @@ class Auth {
     }
 
     public function requireEmailVerification() {
+        global $router;
         if ($this->isLoggedIn() && !$this->isEmailVerified()) {
             // Redirect to email verification notice page
-            header('Location: ' . Functions::url('auth/verify-email-notice'));
+            $router->redirectTo(Functions::url('auth/verify-email-notice'));
             exit;
         }
     }
@@ -401,6 +416,17 @@ class Auth {
     public function getIntendedUrl() {
         $url = $_SESSION['intended_url'] ?? Functions::url('dashboard');
         unset($_SESSION['intended_url']);
-        return $url;
+
+        // If the stored URL doesn't start with base_url, then Functions::url() will add it.
+        // If it starts with base_url, then we need to strip it before passing it to Functions::url()
+        // Or simply, if it's already a full URL, return it as is.
+        // Given that we now store it *without* the base_url in requireLogin(),
+        // Functions::url() should be able to handle it directly.
+        // However, if the fallback `Functions::url('dashboard')` is used, it's fine.
+
+        // The key is to ensure that $url passed to Functions::url() is always a route (e.g., /dashboard, /auth/login)
+        // not a full URL with cms_sederhana already prepended.
+
+        return Functions::url($url);
     }
 }
